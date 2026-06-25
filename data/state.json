@@ -1,0 +1,40 @@
+{
+  "activePlatform": "youtube",
+  "settings": {
+    "youtube": {
+      "clientId": "1081818380130-64cbgolqkr2mn11qg42m3jvu640g2887.apps.googleusercontent.com",
+      "clientSecret": "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",
+      "redirectUri": "http://localhost:8787/auth/youtube/callback",
+      "channelName": "Youtube chanel"
+    },
+    "tiktok": {
+      "clientKey": "",
+      "clientSecret": "",
+      "accessToken": "",
+      "accountName": ""
+    },
+    "instagram": {
+      "appId": "",
+      "appSecret": "",
+      "accessToken": "",
+      "igAccountId": ""
+    },
+    "facebook": {
+      "appId": "",
+      "appSecret": "",
+      "pageAccessToken": "",
+      "pageId": ""
+    }
+  },
+  "youtubeAuth": {
+    "connected": true,
+    "accountName": "Youtube chanel",
+    "accessToken": "ya29.a0AT3oNZ85vyjpN84JwBnxL24eINEBmaIRZmzuWaoxu0gu7vekMYW2u1cC9c7SqEaYuZ_46UOXR97-PwhIGgBt2XubcAUWzejP-x8CLIYINovtwBbkN6U4IU34jcarrsNmfroodIqhfsh_s8d3R5xryOwAdLLtGZtsA7Xh4w1cbbLgHB3w3dtzUCNOwtIr18a-y_J4XIwaCgYKAbYSARUSFQHGX2MiHGPwwRPCdV8fMIu8pN0J8g0206",
+    "refreshToken": "1//0e4JRBsqtUQTMCgYIARAAGA4SNwF-L9IrUeNLeG_7S0cONWnnvJFvTKYdEqlq3hkMaztxgQzpoxc4yyyv8WHpxZVdmfwvL_HBGio",
+    "expiryDate": "2026-06-25T20:00:04.827Z",
+    "lastTest": "2026-06-25T16:30:54.141Z",
+    "lastMessage": "OAuth token refreshed",
+    "selectedChannelId": "UC1Kun1aPv7B7O2d5ULeR1Lg",
+    "selectedChannelName": "Ehsan"
+  }
+}
