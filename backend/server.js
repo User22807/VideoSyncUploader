@@ -553,11 +553,14 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/auth/youtube/start") {
       const state = await readState();
-      const { clientId, redirectUri } = state.settings.youtube;
-      if (!clientId || !redirectUri) {
-        sendText(res, 400, "Missing YouTube client ID or redirect URI.");
+      const { clientId } = state.settings.youtube;
+      if (!clientId) {
+        sendText(res, 400, "Missing YouTube client ID.");
         return;
       }
+      // Build redirect URI from the origin header to ensure it matches the deployment environment
+      const origin = req.headers.origin || req.headers.referer?.split("/").slice(0, 3).join("/") || FRONTEND_URL;
+      const redirectUri = `${origin.replace(/\/$/, "")}/auth/youtube/callback`;
       redirect(res, buildGoogleAuthUrl({ clientId, redirectUri }));
       return;
     }
@@ -570,10 +573,13 @@ const server = http.createServer(async (req, res) => {
       }
 
       const state = await readState();
+      // Build redirect URI from the origin header to match what was sent to Google
+      const origin = req.headers.origin || req.headers.referer?.split("/").slice(0, 3).join("/") || FRONTEND_URL;
+      const redirectUri = `${origin.replace(/\/$/, "")}/auth/youtube/callback`;
       const tokenData = await exchangeCodeForToken({
         clientId: state.settings.youtube.clientId,
         clientSecret: state.settings.youtube.clientSecret,
-        redirectUri: state.settings.youtube.redirectUri,
+        redirectUri,
         code,
       });
 
