@@ -19,10 +19,13 @@ npm install
 npm start
 ```
 
-6. Add the environment variable:
+6. Add the environment variables:
 
 ```text
 FRONTEND_URL=https://your-frontend.vercel.app
+FIREBASE_SERVICE_ACCOUNT=<your service account JSON>
+FIRESTORE_SETTINGS_COLLECTION=Youtube Server Info
+FIRESTORE_SETTINGS_DOCUMENT=YoutubeServerDataCollection
 ```
 
 7. Save and deploy.

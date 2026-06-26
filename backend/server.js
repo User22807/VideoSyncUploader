@@ -2,11 +2,14 @@ import http from "node:http";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
+import admin from "firebase-admin";
 
 const PORT = process.env.PORT || 8787;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const DATA_DIR = path.join(process.cwd(), "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
+const FIRESTORE_SETTINGS_COLLECTION = process.env.FIRESTORE_SETTINGS_COLLECTION || "Youtube Server Info";
+const FIRESTORE_SETTINGS_DOCUMENT = process.env.FIRESTORE_SETTINGS_DOCUMENT || "YoutubeServerDataCollection";
 
 const emptyState = {
   activePlatform: "youtube",
@@ -44,12 +47,18 @@ async function readState() {
   await ensureStateFile();
   const raw = await fs.readFile(STATE_FILE, "utf8");
   const parsed = JSON.parse(raw);
+  const firestoreSettings = await loadSettingsFromFirestore();
+  const youtubeSettings = {
+    ...emptyState.settings.youtube,
+    ...(parsed.settings?.youtube || {}),
+    ...(firestoreSettings || {}),
+  };
+
   return {
     ...emptyState,
     ...parsed,
     settings: {
-      ...emptyState.settings,
-      ...(parsed.settings || {}),
+      youtube: youtubeSettings,
     },
     youtubeAuth: {
       ...emptyState.youtubeAuth,
@@ -61,6 +70,52 @@ async function readState() {
 async function writeState(state) {
   await ensureStateFile();
   await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+  if (state.settings?.youtube) {
+    await saveSettingsToFirestore(state.settings.youtube);
+  }
+}
+
+function initFirestore() {
+  if (!admin.apps.length) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    } else {
+      admin.initializeApp();
+    }
+  }
+  return admin.firestore();
+}
+
+async function loadSettingsFromFirestore() {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return null;
+  }
+
+  const db = initFirestore();
+  const doc = await db.collection(FIRESTORE_SETTINGS_COLLECTION).doc(FIRESTORE_SETTINGS_DOCUMENT).get();
+  if (!doc.exists) return null;
+  const data = doc.data();
+  return {
+    clientId: data?.client_id || "",
+    clientSecret: data?.client_secret || "",
+    redirectUri: data?.redirect_uri || `${FRONTEND_URL.replace(/\/$/, "")}/auth/youtube/callback`,
+    channelName: data?.channel_name || "",
+  };
+}
+
+async function saveSettingsToFirestore(settings) {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return;
+  }
+
+  const db = initFirestore();
+  await db.collection(FIRESTORE_SETTINGS_COLLECTION).doc(FIRESTORE_SETTINGS_DOCUMENT).set({
+    client_id: settings.clientId || "",
+    client_secret: settings.clientSecret || "",
+    redirect_uri: settings.redirectUri || `${FRONTEND_URL.replace(/\/$/, "")}/auth/youtube/callback`,
+    channel_name: settings.channelName || "",
+  }, { merge: true });
 }
 
 function setCorsHeaders(res) {
