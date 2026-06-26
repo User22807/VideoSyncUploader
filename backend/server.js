@@ -6,6 +6,7 @@ import admin from "firebase-admin";
 
 const PORT = process.env.PORT || 8787;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const BACKEND_URL = process.env.BACKEND_URL || "";
 const DATA_DIR = path.join(process.cwd(), "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 const FIRESTORE_SETTINGS_COLLECTION = process.env.FIRESTORE_SETTINGS_COLLECTION || "Youtube Server Info";
@@ -148,6 +149,25 @@ function redirect(res, location) {
   setCorsHeaders(res);
   res.writeHead(302, { Location: location });
   res.end();
+}
+
+function getRequestBaseUrl(req) {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = forwardedProto ? forwardedProto.split(",")[0].trim() : req.socket?.encrypted ? "https" : "http";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:8787";
+  return `${proto}://${host}`;
+}
+
+const BACKEND_URL = process.env.BACKEND_URL || "";
+
+function getRequestBaseUrl(req) {
+  if (BACKEND_URL) {
+    return BACKEND_URL.replace(/\/$/, "");
+  }
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = forwardedProto ? forwardedProto.split(",")[0].trim() : req.socket?.encrypted ? "https" : "http";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:8787";
+  return `${proto}://${host}`;
 }
 
 function buildGoogleAuthUrl({ clientId, redirectUri }) {
@@ -554,12 +574,13 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/auth/youtube/start") {
       const state = await readState();
-      const { clientId, redirectUri } = state.settings.youtube;
-      if (!clientId || !redirectUri) {
-        sendText(res, 400, "Missing YouTube client ID or redirect URI.");
+      const { clientId } = state.settings.youtube;
+      const callbackUri = `${getRequestBaseUrl(req)}/auth/youtube/callback`;
+      if (!clientId) {
+        sendText(res, 400, "Missing YouTube client ID.");
         return;
       }
-      redirect(res, buildGoogleAuthUrl({ clientId, redirectUri }));
+      redirect(res, buildGoogleAuthUrl({ clientId, redirectUri: callbackUri }));
       return;
     }
 
@@ -571,10 +592,11 @@ const server = http.createServer(async (req, res) => {
       }
 
       const state = await readState();
+      const callbackUri = `${getRequestBaseUrl(req)}/auth/youtube/callback`;
       const tokenData = await exchangeCodeForToken({
         clientId: state.settings.youtube.clientId,
         clientSecret: state.settings.youtube.clientSecret,
-        redirectUri: state.settings.youtube.redirectUri,
+        redirectUri: callbackUri,
         code,
       });
 

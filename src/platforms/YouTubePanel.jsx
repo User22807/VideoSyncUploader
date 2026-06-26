@@ -142,21 +142,26 @@ export default function YouTubePanel() {
     let cancelled = false;
     (async () => {
       try {
+        const params = new URLSearchParams(window.location.search);
+        const hadConnectedParam = params.get("youtube") === "connected";
         const isConnected = await loadState();
         if (cancelled) return;
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("youtube") === "connected") {
+
+        if (hadConnectedParam) {
           flashToast("YouTube connected successfully");
+          if (!isConnected) {
+            // Re-check the state if the callback just happened.
+            await loadState();
+          }
           params.delete("youtube");
           const nextUrl = params.toString() ? window.location.pathname + "?" + params.toString() : window.location.pathname;
           window.history.replaceState({}, "", nextUrl);
         }
+
         if (isConnected) {
-          // Re-check connection validity on load; update UI accordingly
           try {
             await testApiConnection();
           } catch (e) {
-            // If re-check fails, leave error state for user to act
             console.warn("Connection re-check failed:", e && e.message ? e.message : e);
           }
           await fetchChannels();
@@ -172,23 +177,28 @@ export default function YouTubePanel() {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
+  const persistSettings = async (currentSettings) => {
+    const response = await fetch(apiUrl("/api/youtube/save"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(currentSettings),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Failed to save settings");
+    setSettings({
+      clientId: data.youtube?.clientId || "",
+      clientSecret: data.youtube?.clientSecret || "",
+      redirectUri: data.youtube?.redirectUri || "",
+      channelName: data.youtube?.channelName || "",
+    });
+    return true;
+  };
+
   const saveConnection = async () => {
     setError("");
     setStepOneState("saving");
     try {
-      const response = await fetch(apiUrl("/api/youtube/save"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to save settings");
-      setSettings({
-        clientId: data.youtube?.clientId || "",
-        clientSecret: data.youtube?.clientSecret || "",
-        redirectUri: data.youtube?.redirectUri || "",
-        channelName: data.youtube?.channelName || "",
-      });
+      await persistSettings(settings);
       setStepOneState("saved");
       flashToast("YouTube API settings saved");
     } catch (err) {
@@ -343,18 +353,20 @@ export default function YouTubePanel() {
                 type="button"
                 onClick={async () => {
                   setError("");
-                  // If already connected, re-check the connection
                   if (connected) {
                     await testApiConnection();
                     return;
                   }
-                  // Require saved clientId/redirectUri before starting OAuth
-                  if (!settings.clientId || !settings.redirectUri) {
-                    setError("Save API connection first, then connect.");
+                  if (!settings.clientId || !settings.clientSecret || !settings.redirectUri) {
+                    setError("Fill and save your Client ID, Client Secret, and Redirect URI before connecting.");
                     return;
                   }
-                  // Redirect to backend OAuth start
-                  window.location.href = apiUrl("/auth/youtube/start");
+                  try {
+                    await persistSettings(settings);
+                    window.location.href = apiUrl("/auth/youtube/start");
+                  } catch (err) {
+                    setError(err.message || "Failed to save settings before connect.");
+                  }
                 }}
                 style={connected ? { backgroundColor: "#2b9f4b", color: "#fff" } : {}}
               >
