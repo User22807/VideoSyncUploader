@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+const API_BASE_URL = "https://videosyncuploader.onrender.com";
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
+
 function formatSize(bytes) {
   if (!bytes) return "0 MB";
   const units = ["B", "KB", "MB", "GB"];
@@ -61,7 +64,7 @@ export default function YouTubePanel() {
   };
 
   const loadState = async () => {
-    const response = await fetch("/api/state");
+    const response = await fetch(apiUrl("/api/state"));
     if (!response.ok) throw new Error("Failed to load state");
     const data = await response.json();
     const youtube = data.settings?.youtube || {};
@@ -92,7 +95,7 @@ export default function YouTubePanel() {
     setLoadingChannels(true);
     setError("");
     try {
-      const response = await fetch("/api/youtube/channels");
+      const response = await fetch(apiUrl("/api/youtube/channels"));
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to load channels");
       setChannels(data.channels || []);
@@ -124,7 +127,7 @@ export default function YouTubePanel() {
     setLoadingVideos(true);
     setError("");
     try {
-      const response = await fetch(channelId ? "/api/youtube/videos?channelId=" + encodeURIComponent(channelId) : "/api/youtube/videos");
+      const response = await fetch(channelId ? apiUrl("/api/youtube/videos?channelId=" + encodeURIComponent(channelId)) : apiUrl("/api/youtube/videos"));
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to load uploaded videos");
       setVideos(data.videos || []);
@@ -166,7 +169,7 @@ export default function YouTubePanel() {
     setError("");
     setStepOneState("saving");
     try {
-      const response = await fetch("/api/youtube/save", {
+      const response = await fetch(apiUrl("/api/youtube/save"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
@@ -191,7 +194,7 @@ export default function YouTubePanel() {
     setError("");
     setStepOneState("testing");
     try {
-      const response = await fetch("/api/youtube/test", { method: "POST" });
+      const response = await fetch(apiUrl("/api/youtube/test"), { method: "POST" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Connection test failed");
       setAuth((prev) => ({
@@ -214,7 +217,7 @@ export default function YouTubePanel() {
   const selectChannel = async (channel) => {
     setError("");
     try {
-      const response = await fetch("/api/youtube/select-channel", {
+      const response = await fetch(apiUrl("/api/youtube/select-channel"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channelId: channel.id }),
@@ -245,7 +248,7 @@ export default function YouTubePanel() {
     }
     setUploadState("uploading");
     try {
-      const response = await fetch("/api/youtube/upload", {
+      const response = await fetch(apiUrl("/api/youtube/upload"), {
         method: "POST",
         headers: {
           "Content-Type": file.type || "application/octet-stream",
@@ -271,7 +274,7 @@ export default function YouTubePanel() {
   const deleteVideo = async (video) => {
     setError("");
     try {
-      const response = await fetch("/api/youtube/videos/delete", {
+      const response = await fetch(apiUrl("/api/youtube/videos/delete"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoId: video.id }),
