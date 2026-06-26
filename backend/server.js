@@ -434,6 +434,13 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/api/state") {
       const state = await readState();
+      try {
+        const origin = req.headers.origin || req.headers.referer || "(none)";
+        const yt = state.settings?.youtube || {};
+        console.log("/api/state request from", origin, "clientId?", !!yt.clientId, "redirectUri:", yt.redirectUri || "(missing)");
+      } catch (e) {
+        /* ignore */
+      }
       sendJson(res, 200, state);
       return;
     }

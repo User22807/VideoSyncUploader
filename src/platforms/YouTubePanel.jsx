@@ -152,6 +152,13 @@ export default function YouTubePanel() {
           window.history.replaceState({}, "", nextUrl);
         }
         if (isConnected) {
+          // Re-check connection validity on load; update UI accordingly
+          try {
+            await testApiConnection();
+          } catch (e) {
+            // If re-check fails, leave error state for user to act
+            console.warn("Connection re-check failed:", e && e.message ? e.message : e);
+          }
           await fetchChannels();
         }
       } catch (err) {
@@ -331,7 +338,28 @@ export default function YouTubePanel() {
             </div>
             <div className="actions">
               <button className="primary" type="button" onClick={saveConnection}>Save API connection</button>
-              <button className="ghost" type="button" onClick={testApiConnection}>Test connection</button>
+              <button
+                className={connected ? "primary connected" : "ghost"}
+                type="button"
+                onClick={async () => {
+                  setError("");
+                  // If already connected, re-check the connection
+                  if (connected) {
+                    await testApiConnection();
+                    return;
+                  }
+                  // Require saved clientId/redirectUri before starting OAuth
+                  if (!settings.clientId || !settings.redirectUri) {
+                    setError("Save API connection first, then connect.");
+                    return;
+                  }
+                  // Redirect to backend OAuth start
+                  window.location.href = apiUrl("/auth/youtube/start");
+                }}
+                style={connected ? { backgroundColor: "#2b9f4b", color: "#fff" } : {}}
+              >
+                {connected ? "Connected" : "Connect"}
+              </button>
             </div>
             <p className="muted">{auth.lastMessage}</p>
           </div>
