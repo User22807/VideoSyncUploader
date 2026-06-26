@@ -34,7 +34,8 @@ function VideoThumb({ thumbnail, title }) {
 }
 
 export default function YouTubePanel() {
-  const [settings, setSettings] = useState({ clientId: "", clientSecret: "", redirectUri: "" });
+  const redirectUri = `${window.location.origin}/auth/youtube/callback`;
+  const [settings, setSettings] = useState({ clientId: "", clientSecret: "", redirectUri });
   const [auth, setAuth] = useState({ connected: false, accountName: "", selectedChannelId: "", selectedChannelName: "", selectedChannelIcon: "", lastMessage: "Not connected" });
   const [channels, setChannels] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -71,7 +72,7 @@ export default function YouTubePanel() {
     setSettings({
       clientId: youtube.clientId || "",
       clientSecret: youtube.clientSecret || "",
-      redirectUri: youtube.redirectUri || "",
+      redirectUri,
     });
     setAuth((prev) => ({
       ...prev,
@@ -338,7 +339,7 @@ export default function YouTubePanel() {
             <div className="settings-grid">
               <label><span>Client ID</span><input value={settings.clientId} onChange={(e) => updateField("clientId", e.target.value)} /></label>
               <label><span>Client Secret</span><input value={settings.clientSecret} onChange={(e) => updateField("clientSecret", e.target.value)} /></label>
-              <label><span>Redirect URI</span><input value={settings.redirectUri} onChange={(e) => updateField("redirectUri", e.target.value)} /></label>
+              <label><span>Redirect URI</span><input value={settings.redirectUri} readOnly title="Auto-populated from current URL" /></label>
             </div>
             <div className="actions">
               <button className="primary" type="button" onClick={saveConnection}>Save API connection</button>

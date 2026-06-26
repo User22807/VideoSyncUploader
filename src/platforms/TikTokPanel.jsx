@@ -13,10 +13,11 @@ function InfoCard({ title, body, step }) {
 }
 
 export default function TikTokPanel() {
+  const redirectUri = window.location.origin + "/";
   const [settings, setSettings] = useState({
     clientKey: "",
     clientSecret: "",
-    redirectUri: "http://localhost:5173/",
+    redirectUri,
     accessToken: "",
   });
   const [file, setFile] = useState(null);
@@ -91,7 +92,7 @@ export default function TikTokPanel() {
           </label>
           <label>
             <span>Redirect URI</span>
-            <input value={settings.redirectUri} onChange={(e) => setSettings((prev) => ({ ...prev, redirectUri: e.target.value }))} />
+            <input value={settings.redirectUri} readOnly title="Auto-populated from current URL" />
           </label>
           <label>
             <span>Access Token</span>
