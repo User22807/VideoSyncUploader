@@ -34,7 +34,7 @@ function VideoThumb({ thumbnail, title }) {
 }
 
 export default function YouTubePanel() {
-  const [settings, setSettings] = useState({ clientId: "", clientSecret: "", redirectUri: "", channelName: "" });
+  const [settings, setSettings] = useState({ clientId: "", clientSecret: "", redirectUri: "" });
   const [auth, setAuth] = useState({ connected: false, accountName: "", selectedChannelId: "", selectedChannelName: "", selectedChannelIcon: "", lastMessage: "Not connected" });
   const [channels, setChannels] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -64,7 +64,7 @@ export default function YouTubePanel() {
   };
 
   const loadState = async () => {
-    const response = await fetch(apiUrl("/api/state"));
+    const response = await fetch(apiUrl("/api/state"), { cache: "no-store" });
     if (!response.ok) throw new Error("Failed to load state");
     const data = await response.json();
     const youtube = data.settings?.youtube || {};
@@ -72,7 +72,6 @@ export default function YouTubePanel() {
       clientId: youtube.clientId || "",
       clientSecret: youtube.clientSecret || "",
       redirectUri: youtube.redirectUri || "",
-      channelName: youtube.channelName || "",
     });
     setAuth((prev) => ({
       ...prev,
@@ -144,15 +143,12 @@ export default function YouTubePanel() {
       try {
         const params = new URLSearchParams(window.location.search);
         const hadConnectedParam = params.get("youtube") === "connected";
-        const isConnected = await loadState();
+        let isConnected = await loadState();
         if (cancelled) return;
 
         if (hadConnectedParam) {
           flashToast("YouTube connected successfully");
-          if (!isConnected) {
-            // Re-check the state if the callback just happened.
-            await loadState();
-          }
+          isConnected = await loadState();
           params.delete("youtube");
           const nextUrl = params.toString() ? window.location.pathname + "?" + params.toString() : window.location.pathname;
           window.history.replaceState({}, "", nextUrl);
@@ -189,7 +185,6 @@ export default function YouTubePanel() {
       clientId: data.youtube?.clientId || "",
       clientSecret: data.youtube?.clientSecret || "",
       redirectUri: data.youtube?.redirectUri || "",
-      channelName: data.youtube?.channelName || "",
     });
     return true;
   };
@@ -344,7 +339,6 @@ export default function YouTubePanel() {
               <label><span>Client ID</span><input value={settings.clientId} onChange={(e) => updateField("clientId", e.target.value)} /></label>
               <label><span>Client Secret</span><input value={settings.clientSecret} onChange={(e) => updateField("clientSecret", e.target.value)} /></label>
               <label><span>Redirect URI</span><input value={settings.redirectUri} onChange={(e) => updateField("redirectUri", e.target.value)} /></label>
-              <label><span>Channel Name</span><input value={settings.channelName} onChange={(e) => updateField("channelName", e.target.value)} /></label>
             </div>
             <div className="actions">
               <button className="primary" type="button" onClick={saveConnection}>Save API connection</button>
