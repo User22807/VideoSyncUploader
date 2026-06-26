@@ -405,12 +405,30 @@ async function testYoutubeConnection(youtubeSettings, youtubeAuth) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  // Basic request logging to help diagnose Render 502/CORS issues
+  try {
+    console.log(new Date().toISOString(), req.method, url.pathname);
+  } catch (e) {
+    /* ignore logging errors */
+  }
 
   try {
     if (req.method === "OPTIONS") {
       setCorsHeaders(res);
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    // Health check route for Render / load balancer
+    if (req.method === "GET" && url.pathname === "/health") {
+      sendJson(res, 200, { ok: true, uptime: process.uptime() });
+      return;
+    }
+
+    // Root info
+    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "")) {
+      sendJson(res, 200, { ok: true, service: "video-sync-uploader-backend", env: process.env.NODE_ENV || "production" });
       return;
     }
 
@@ -577,6 +595,31 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`API server listening on http://0.0.0.0:${PORT}`);
+// Log uncaught errors so Render logs show root causes of crashes
+process.on("uncaughtException", (err) => {
+  console.error("uncaughtException:", err && err.stack ? err.stack : err);
+  // don't exit immediately on Render; allow the platform to restart if necessary
 });
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandledRejection:", reason);
+});
+
+(async () => {
+  try {
+    const fsSettings = await loadSettingsFromFirestore().catch((e) => {
+      console.warn("loadSettingsFromFirestore failed:", e && e.message ? e.message : e);
+      return null;
+    });
+    if (fsSettings) {
+      console.log("Firestore settings loaded at startup");
+    } else {
+      console.log("No Firestore settings found or FIREBASE config missing at startup");
+    }
+  } catch (e) {
+    console.error("Error during startup Firestore load:", e && e.stack ? e.stack : e);
+  }
+
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`API server listening on http://0.0.0.0:${PORT}`);
+  });
+})();
