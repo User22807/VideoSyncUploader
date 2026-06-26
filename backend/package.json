@@ -7,6 +7,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "firebase-admin": "^12.11.0"
+    "firebase-admin": "^14.1.0"
   }
 }
