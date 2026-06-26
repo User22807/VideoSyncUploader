@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
 
-const PORT = 8787;
+const PORT = process.env.PORT || 8787;
 const DATA_DIR = path.join(process.cwd(), "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 
@@ -62,12 +62,21 @@ async function writeState(state) {
   await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
 }
 
+function setCorsHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Title, X-Description, X-Privacy, X-File-Name, X-Channel-Id");
+  res.setHeader("Vary", "Origin");
+}
+
 function sendJson(res, status, data) {
+  setCorsHeaders(res);
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
 }
 
 function sendText(res, status, text) {
+  setCorsHeaders(res);
   res.writeHead(status, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(text);
 }
@@ -334,6 +343,13 @@ async function testYoutubeConnection(youtubeSettings, youtubeAuth) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
+  if (req.method === "OPTIONS") {
+    setCorsHeaders(res);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   try {
     if (req.method === "GET" && url.pathname === "/api/state") {
       const state = await readState();
@@ -498,7 +514,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`API server listening on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`API server listening on http://0.0.0.0:${PORT}`);
 });
 

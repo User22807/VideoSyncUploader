@@ -64,9 +64,10 @@ async function writeState(state) {
 }
 
 function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Origin", FRONTEND_URL);
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Title, X-Description, X-Privacy, X-File-Name, X-Channel-Id");
+  res.setHeader("Vary", "Origin");
 }
 
 function sendJson(res, status, data) {
@@ -521,6 +522,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`API server listening on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`API server listening on http://0.0.0.0:${PORT}`);
 });
