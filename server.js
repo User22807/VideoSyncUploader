@@ -1,18 +1,30 @@
 ﻿import http from "node:http";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
+import admin from "firebase-admin";
 
 const PORT = process.env.PORT || 8787;
-const DATA_DIR = path.join(process.cwd(), "data");
-const STATE_FILE = path.join(DATA_DIR, "state.json");
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+// Initialize Firebase if credentials are available
+let db = null;
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    db = admin.firestore();
+    console.log("Firebase initialized");
+  } catch (e) {
+    console.error("Failed to initialize Firebase:", e.message);
+  }
+}
 
 const emptyState = {
   settings: {
     youtube: {
       clientId: "",
       clientSecret: "",
-      redirectUri: "http://localhost:8787/auth/youtube/callback",
+      redirectUri: "",
     },
   },
   youtubeAuth: {
@@ -25,38 +37,70 @@ const emptyState = {
   },
 };
 
-async function ensureStateFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(STATE_FILE);
-  } catch {
-    await fs.writeFile(STATE_FILE, JSON.stringify(emptyState, null, 2), "utf8");
-  }
+function getRedirectUri(req) {
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:8787";
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  return `${proto}://${host}/auth/youtube/callback`;
+}
+
+function getFrontendUrl() {
+  return FRONTEND_URL;
 }
 
 async function readState() {
-  await ensureStateFile();
-  const raw = await fs.readFile(STATE_FILE, "utf8");
-  const parsed = JSON.parse(raw);
-  return {
-    ...emptyState,
-    ...parsed,
-    settings: {
-      youtube: {
-        ...emptyState.settings.youtube,
-        ...(parsed.settings?.youtube || {}),
+  if (!db) {
+    return emptyState;
+  }
+  try {
+    const doc = await db.collection("youtube").doc("config").get();
+    if (!doc.exists) {
+      return emptyState;
+    }
+    const data = doc.data();
+    return {
+      settings: {
+        youtube: {
+          clientId: data.clientId || "",
+          clientSecret: data.clientSecret || "",
+          redirectUri: data.redirectUri || "",
+        },
       },
-    },
-    youtubeAuth: {
-      ...emptyState.youtubeAuth,
-      ...(parsed.youtubeAuth || {}),
-    },
-  };
+      youtubeAuth: {
+        connected: Boolean(data.connected),
+        accountName: data.accountName || "",
+        accessToken: data.accessToken || "",
+        refreshToken: data.refreshToken || "",
+        expiryDate: data.expiryDate || null,
+        lastMessage: data.lastMessage || "Not connected",
+      },
+    };
+  } catch (error) {
+    console.error("Error reading state:", error.message);
+    return emptyState;
+  }
 }
 
 async function writeState(state) {
-  await ensureStateFile();
-  await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+  if (!db) {
+    console.warn("Firebase not available, state not persisted");
+    return;
+  }
+  try {
+    await db.collection("youtube").doc("config").set({
+      clientId: state.settings.youtube.clientId,
+      clientSecret: state.settings.youtube.clientSecret,
+      redirectUri: state.settings.youtube.redirectUri,
+      connected: state.youtubeAuth.connected,
+      accountName: state.youtubeAuth.accountName,
+      accessToken: state.youtubeAuth.accessToken,
+      refreshToken: state.youtubeAuth.refreshToken,
+      expiryDate: state.youtubeAuth.expiryDate,
+      lastMessage: state.youtubeAuth.lastMessage,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error writing state:", error.message);
+  }
 }
 
 function setCorsHeaders(res) {
@@ -86,6 +130,7 @@ async function readBody(req) {
 }
 
 function redirect(res, location) {
+  setCorsHeaders(res);
   res.writeHead(302, { Location: location });
   res.end();
 }
@@ -261,9 +306,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/auth/youtube/start") {
       const state = await readState();
-      const { clientId, redirectUri } = state.settings.youtube;
-      if (!clientId || !redirectUri) {
-        sendText(res, 400, "Missing YouTube client ID or redirect URI.");
+      const redirectUri = getRedirectUri(req);
+      const { clientId } = state.settings.youtube;
+      if (!clientId) {
+        sendJson(res, 400, { ok: false, error: "Missing YouTube client ID." });
         return;
       }
       redirect(res, buildGoogleAuthUrl({ clientId, redirectUri }));
@@ -273,15 +319,16 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/auth/youtube/callback") {
       const code = url.searchParams.get("code");
       if (!code) {
-        sendText(res, 400, "Missing authorization code.");
+        sendJson(res, 400, { ok: false, error: "Missing authorization code." });
         return;
       }
 
       const state = await readState();
+      const redirectUri = getRedirectUri(req);
       const tokenData = await exchangeCodeForToken({
         clientId: state.settings.youtube.clientId,
         clientSecret: state.settings.youtube.clientSecret,
-        redirectUri: state.settings.youtube.redirectUri,
+        redirectUri,
         code,
       });
 
@@ -297,12 +344,13 @@ const server = http.createServer(async (req, res) => {
         },
       };
       await writeState(nextState);
-      redirect(res, "http://localhost:5173/?youtube=connected");
+      redirect(res, `${getFrontendUrl()}/?youtube=connected`);
       return;
     }
 
-    sendText(res, 404, "Not found");
+    sendJson(res, 404, { ok: false, error: "Not found" });
   } catch (error) {
+    console.error("Error:", error.message);
     const statusCode = error.statusCode || 500;
     sendJson(res, statusCode, { ok: false, error: error.message || "Server error" });
   }

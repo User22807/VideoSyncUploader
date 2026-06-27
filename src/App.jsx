@@ -1,13 +1,7 @@
 ﻿import React, { useEffect, useState } from "react";
 
-const initialSettings = {
-  clientId: "",
-  clientSecret: "",
-  redirectUri: "http://localhost:8787/auth/youtube/callback",
-};
-
 function App() {
-  const [settings, setSettings] = useState(initialSettings);
+  const [settings, setSettings] = useState({ clientId: "", clientSecret: "" });
   const [youtubeAuth, setYoutubeAuth] = useState({ connected: false, accountName: "", lastMessage: "Not connected" });
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +21,6 @@ function App() {
       setSettings({
         clientId: youtube.clientId || "",
         clientSecret: youtube.clientSecret || "",
-        redirectUri: youtube.redirectUri || initialSettings.redirectUri,
       });
       setYoutubeAuth({
         connected: Boolean(data.youtubeAuth?.connected),
@@ -127,10 +120,6 @@ function App() {
               onChange={(event) => setSettings((prev) => ({ ...prev, clientSecret: event.target.value }))}
               placeholder="Paste your OAuth client secret"
             />
-          </label>
-          <label>
-            <span>Redirect URI</span>
-            <input value={settings.redirectUri} readOnly />
           </label>
         </div>
         <div className="actions">
