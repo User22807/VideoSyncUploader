@@ -104,7 +104,7 @@ export function setCorsHeaders(res) {
 export function getRedirectUri(req) {
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:8787";
   const proto = req.headers["x-forwarded-proto"] || "http";
-  return `${proto}://${host}/auth/youtube/callback`;
+  return `${proto}://${host}/api/auth/youtube/callback`;
 }
 
 export function getFrontendUrl() {

@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "env": {
+    "FRONTEND_URL": "@frontend_url",
+    "FIREBASE_SERVICE_ACCOUNT": "@firebase_service_account"
+  }
+}

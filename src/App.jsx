@@ -63,7 +63,7 @@ function App() {
   };
 
   const connectYouTube = () => {
-    window.location.href = "/auth/youtube/start";
+    window.location.href = "/api/auth/youtube/start";
   };
 
   const loadChannels = async () => {
